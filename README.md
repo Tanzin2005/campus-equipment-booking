@@ -1,26 +1,32 @@
 # Campus Equipment Booking
 
-A FastAPI backend for reserving individual pieces of campus equipment, such as
-oscilloscopes, Arduino kits, and projectors. Built as a guided resume project.
+A FastAPI backend for reserving campus equipment such as oscilloscopes, Arduino kits, and projectors. Reservations persist in SQLite, and overlapping bookings for the same item are rejected.
 
-## Current milestone: working reservation API
+**Status:** Local prototype. Authentication, booking ownership, cancellation, and a frontend are planned. Use sample data: the current API accepts unverified student names and exposes all bookings.
 
-- Lists three sample equipment items.
-- Stores reservations in SQLite so they survive a restart.
-- Rejects overlapping reservations, including concurrent API requests.
-- Allows back-to-back reservations and simultaneous bookings of different items.
-- Requires future, timezone-aware timestamps and normalizes them to UTC.
-- Lists reservations with equipment filtering and pagination.
-- Includes automated API tests and interactive API documentation.
+## Features
 
-This is a local learning prototype. It has no login or ownership checks yet;
-names are unverified input and all reservations are readable. Use fictional data
-and run locally until the authentication milestone is complete.
+- Browse three sample equipment items.
+- Create reservations with validated, timezone-aware start and end times.
+- Prevent overlapping reservations, including simultaneous requests through the API.
+- Allow back-to-back reservations and concurrent bookings of different equipment.
+- Filter reservations by equipment and paginate results.
+- Explore and test endpoints through interactive API documentation.
 
-## Run on Windows PowerShell
+## Tech stack
 
-Install Python 3.12 or newer. Extract the zip, open the `campus-booking` folder
-in VS Code, then open a PowerShell terminal in that folder.
+Python 3.12+, FastAPI, Pydantic, SQLite, Uvicorn, pytest, and HTTPX.
+
+## Run locally
+
+Clone the repository, or select **Code â†’ Download ZIP** on GitHub and extract it. Open a terminal in the folder containing `requirements.txt`.
+
+```bash
+git clone https://github.com/Tanzin2005/campus-equipment-booking.git
+cd campus-equipment-booking
+```
+
+### Windows
 
 ```powershell
 py -m venv .venv
@@ -28,14 +34,9 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-These commands use the virtual environment directly, so you do not need to
-activate it or change PowerShell's execution policy. If `py` is unavailable but
-`python --version` works, use `python -m venv .venv` for the first command.
+These commands use the virtual environment directly; activation is unnecessary. If the `py` launcher is unavailable, use `python -m venv .venv` for the first command.
 
-Open http://127.0.0.1:8000/docs in your browser.
-Stop the server with Ctrl+C. Data is created in `data/bookings.db`.
-
-Linux/macOS equivalents:
+### Linux / macOS
 
 ```bash
 python3 -m venv .venv
@@ -43,13 +44,22 @@ python3 -m venv .venv
 .venv/bin/python -m uvicorn app.main:app --reload
 ```
 
-## First hands-on task
+Open [the interactive API documentation](http://127.0.0.1:8000/docs). The database is created automatically at `data/bookings.db` and persists between restarts. Stop the server with `Ctrl+C`.
 
-1. In `/docs`, expand `GET /equipment`, click **Try it out**, then **Execute**.
-2. Expand `POST /bookings` and submit the example below, changing both dates
-   to a future day. `+05:30` specifies Indian Standard Time.
-3. Submit it again. You should receive HTTP **409 Conflict**.
-4. Change the time to 11:00–12:00. It should succeed with **201 Created**.
+## API endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/` | Application information |
+| GET | `/equipment` | List equipment |
+| POST | `/bookings` | Create a reservation |
+| GET | `/bookings` | List reservations |
+
+`GET /bookings` accepts optional `equipment_id`, `limit` (1â€“100; default 20), and `offset` (default 0) query parameters.
+
+### Example reservation
+
+Submit this JSON to `POST /bookings` through `/docs`. **Change the dates to a future day before submitting.** The `+05:30` offset represents Indian Standard Time; responses use UTC.
 
 ```json
 {
@@ -60,80 +70,63 @@ python3 -m venv .venv
 }
 ```
 
-## API
+| Status | Meaning |
+| --- | --- |
+| `201 Created` | Reservation saved |
+| `404 Not Found` | Equipment does not exist |
+| `409 Conflict` | Equipment is already reserved during the requested interval |
+| `422 Unprocessable Entity` | Invalid input, such as a past start time or an end before the start |
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| GET | `/` | App information |
-| GET | `/equipment` | List equipment |
-| POST | `/bookings` | Reserve one item |
-| GET | `/bookings?equipment_id=1&limit=20&offset=0` | Filter and page reservations |
+## Preventing overlapping bookings
 
-Validation failures return 422, missing equipment returns 404, and conflicting
-reservations return 409. All returned reservation timestamps are UTC.
-
-## Understand the code
-
-Read `app/main.py` first. A route connects an HTTP request to a Python function.
-`BookingRequest` describes and validates the JSON sent by the caller.
-`database.py` creates tables and manages database connections and transactions.
-SQL parameters (`?`) pass values separately from SQL command text.
-
-Two intervals overlap when:
+Two reservations overlap when:
 
 ```text
 existing_start < requested_end AND existing_end > requested_start
 ```
 
-Strict inequalities allow a booking ending at 11:00 and another starting at
-11:00. `BEGIN IMMEDIATE` takes SQLite's write lock before checking for a
-conflict, keeping the availability check and insertion in one transaction.
-All reservation writes must go through this path. The time index improves
-lookup; it does not independently enforce the no-overlap rule.
+The strict comparisons allow one booking to end exactly when another starts. Timestamps are normalized to UTC before storage and comparison.
 
-SQLite serializes writers. This is suitable for this local prototype; high
-load can exhaust the lock wait timeout. A later PostgreSQL version should
-enforce overlap prevention with a database exclusion constraint rather than
-copying this SQLite locking strategy unchanged.
+The API uses a SQLite `BEGIN IMMEDIATE` transaction to acquire the write lock before checking availability and inserting a reservation. This prevents competing API requests from both reserving an available slot. Conflict prevention depends on using this write path; it is not an independent database overlap constraint.
 
-## Run the tests
+SQLite serializes writers, and requests can exceed the lock timeout under heavy contention. This prototype has not been benchmarked for production traffic.
+
+## Tests
+
+On Windows:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Tests cover overlapping intervals, adjacent bookings, separate equipment,
-invalid input, UTC equivalence, persistence, filtering, and four simultaneous
-attempts to reserve the same slot. Tests use temporary databases.
+On Linux / macOS:
 
-## Development roadmap
+```bash
+.venv/bin/python -m pytest -q
+```
 
-1. **Understand this milestone:** run it, explain each endpoint, reproduce a conflict.
-2. **Identity and permissions:** users, hashed passwords, login, own reservations,
-   administrator-only equipment management. Derive booking ownership from the
-   logged-in user, never from a caller-supplied user ID.
-3. **Booking lifecycle:** cancellation, availability search, maintenance periods,
-   and tests showing cancellation frees a slot.
-4. **PostgreSQL:** schema migrations, database-enforced conflict prevention,
-   and concurrent booking tests on PostgreSQL.
-5. **Portfolio delivery:** a usable frontend, Docker, CI, deployment, architecture
-   explanation, and measured performance under a documented workload.
+The suite uses temporary databases and covers overlapping intervals, adjacent bookings, different equipment, invalid inputs, equivalent timezone offsets, persistence after restart, filtering, and four simultaneous requests for the same slot.
 
-Complete one milestone at a time. The frontend and deployment are future work.
+## Project structure
 
-## Resume evidence
+| Path | Purpose |
+| --- | --- |
+| `app/main.py` | API routes, request validation, and reservation logic |
+| `app/database.py` | Database connections, schema, and sample equipment |
+| `tests/test_bookings.py` | Automated API tests |
+| `requirements.txt` | Python dependencies |
+| `.gitignore` | Excludes local environments, caches, and database files from Git tracking |
 
-After you run and understand this milestone, an accurate description is:
+## Planned improvements
 
-> Built a FastAPI and SQLite equipment reservation API with timestamp validation,
-> transaction-protected overlap checks, and automated tests for concurrent bookings.
-
-Only add authentication, PostgreSQL, deployment, user counts, or performance
-numbers after implementing or measuring them. Keep a record of design decisions
-and test outputs so you can explain the project in an interview.
+- User registration, login, and booking ownership checks.
+- Administrator-only equipment management.
+- Cancellation and availability search.
+- PostgreSQL migrations and database-enforced overlap prevention.
+- Frontend, CI, containerization, and deployment.
 
 ## References
 
-- FastAPI database tutorial: https://fastapi.tiangolo.com/tutorial/sql-databases/
-- FastAPI testing guide: https://fastapi.tiangolo.com/tutorial/testing/
-- Python sqlite3 documentation: https://docs.python.org/3/library/sqlite3.html
+- [FastAPI documentation](https://fastapi.tiangolo.com/)
+- [FastAPI testing guide](https://fastapi.tiangolo.com/tutorial/testing/)
+- [Python SQLite documentation](https://docs.python.org/3/library/sqlite3.html)
