@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111d35">
+  <meta name="description" content="Find campus equipment, check availability, and manage your reservations.">
+  <title>Campus Equipment Booking</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="#equipment"><span class="brand-mark">C</span><span>Campus<span class="brand-sub">EQUIPMENT BOOKING</span></span></a>
+    <div class="nav-label">WORKSPACE</div>
+    <nav aria-label="Main navigation">
+      <a href="#equipment" class="nav-link active" data-view="equipment"><span aria-hidden="true">▦</span> Equipment library</a>
+      <a href="#bookings" class="nav-link" data-view="bookings"><span aria-hidden="true">▤</span> My reservations</a>
+      <a href="#admin" class="nav-link" data-view="admin" id="admin-nav" hidden><span aria-hidden="true">⚙</span> Administration</a>
+    </nav>
+    <div class="sidebar-note"><span class="mini-label">MAKE ROOM FOR YOUR NEXT IDEA</span><p>The right tools.<br>Your next project.</p><span>Reserve equipment for up to 24 hours at a time.</span></div>
+    <div class="sidebar-bottom"><span>Campus resources</span><a href="/docs" target="_blank" rel="noopener">API documentation ↗</a></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumb">Equipment library</strong></div><div id="account-controls"><button class="button primary small" id="sign-in">Sign in</button></div></header>
+    <main id="main" tabindex="-1">
+      <div class="page-heading"><div><p class="eyebrow" id="eyebrow">CAMPUS RESOURCES</p><h1 id="page-title">Equipment library</h1><p id="page-description">Find the tools you need. Reserve a time that works.</p></div><div class="heading-action" id="heading-action"></div></div>
+      <section id="catalog-filters" class="filter-panel" aria-label="Find equipment">
+        <form id="search-form">
+          <div class="filter-grid"><label class="search-field">Search equipment<input id="search" type="search" maxlength="100" placeholder="Search by name or location…"></label><label>From<input type="datetime-local" id="filter-start" required></label><label>Until<input type="datetime-local" id="filter-end" required></label><button class="button primary" type="submit">Check availability</button></div>
+          <div class="filter-footer"><span id="timezone-label"></span><label class="checkbox-label"><input type="checkbox" id="available-only"> Show available only</label></div>
+        </form>
+      </section>
+      <div id="view-controls" class="view-controls"></div>
+      <section id="content" aria-live="polite" aria-busy="true"><div class="empty-state"><h2>Loading equipment…</h2></div></section>
+      <div id="pagination" class="pagination" hidden></div>
+      <footer class="page-footer"><span>Campus Equipment Booking</span><span id="footer-detail">Plan ahead. Build something good.</span></footer>
+    </main>
+  </div>
+</div>
+<dialog id="auth-dialog" aria-labelledby="auth-title">
+  <div class="dialog-heading"><span class="eyebrow">YOUR CAMPUS WORKSPACE</span><button class="icon-button" data-close="auth-dialog" aria-label="Close sign-in dialog">×</button></div>
+  <h2 id="auth-title">Welcome back</h2><p id="auth-description">Sign in to reserve equipment and manage your bookings.</p>
+  <div class="segmented"><button type="button" class="selected" data-auth-mode="login">Sign in</button><button type="button" data-auth-mode="register">Create account</button></div>
+  <form id="auth-form"><label id="name-field" hidden>Your name<input name="name" autocomplete="name" maxlength="80"></label><label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><p class="field-help" id="password-help" hidden>Use at least 12 characters.</p><p class="form-error" id="auth-error" role="alert"></p><button class="button primary full" type="submit" id="auth-submit">Sign in</button></form>
+</dialog>
+<dialog id="booking-dialog" aria-labelledby="booking-title">
+  <div class="dialog-heading"><span class="eyebrow">NEW RESERVATION</span><button class="icon-button" data-close="booking-dialog" aria-label="Close reservation dialog">×</button></div>
+  <h2 id="booking-title">Reserve equipment</h2><p id="booking-location"></p>
+  <form id="booking-form"><div class="two-columns"><label>From<input name="start_at" type="datetime-local" required></label><label>Until<input name="end_at" type="datetime-local" required></label></div><p class="field-help" id="booking-timezone"></p><label>What are you working on? <span class="optional">Optional</span><textarea name="purpose" maxlength="240" rows="3" placeholder="A lab experiment, a team project…"></textarea></label><div class="schedule-box"><strong>Reserved times nearby</strong><div id="schedule">Loading schedule…</div></div><p class="form-error" id="booking-error" role="alert"></p><button class="button primary full" type="submit">Confirm reservation</button><p class="field-help centered">You can cancel before your reservation starts.</p></form>
+</dialog>
+<dialog id="cancel-dialog" aria-labelledby="cancel-title">
+  <div class="dialog-heading"><span class="eyebrow">RESERVATION</span><button class="icon-button" data-close="cancel-dialog" aria-label="Close cancellation dialog">×</button></div><h2 id="cancel-title">Cancel this reservation?</h2><p id="cancel-description"></p><p>The equipment will become available to other students.</p><p class="form-error" id="cancel-error" role="alert"></p><div class="dialog-actions"><button class="button secondary" data-close="cancel-dialog">Keep reservation</button><button class="button danger" id="confirm-cancel">Cancel reservation</button></div>
+</dialog>
+<dialog id="equipment-dialog" aria-labelledby="equipment-title">
+  <div class="dialog-heading"><span class="eyebrow">ADMINISTRATION</span><button class="icon-button" data-close="equipment-dialog" aria-label="Close equipment editor">×</button></div><h2 id="equipment-title">Add equipment</h2>
+  <form id="equipment-form"><label>Equipment name<input name="name" required maxlength="100"></label><div class="two-columns"><label>Location<input name="location" required maxlength="100"></label><label>Category<select name="category"><option>Electronics</option><option>Computing</option><option>Presentation</option><option>Fabrication</option></select></label></div><label>Description<textarea name="description" rows="3" maxlength="600"></textarea></label><label class="checkbox-label"><input type="checkbox" name="active" checked> Accept reservations for this item</label><p class="field-help">Cancel upcoming reservations before taking an item offline.</p><p class="form-error" id="equipment-error" role="alert"></p><button class="button primary full" type="submit">Save equipment</button></form>
+</dialog>
+<div id="toast" role="status" class="toast" hidden></div>
+<noscript><p class="noscript">Enable JavaScript to use the booking interface. The API is also available at /docs.</p></noscript>
+</body>
+</html>
